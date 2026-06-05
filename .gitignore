@@ -1,0 +1,25 @@
+# Secrets
+.env
+.env.local
+*.key
+*.pem
+cds/aws_signing_helper/
+
+# Python
+.venv/
+__pycache__/
+*.pyc
+*.pyo
+
+# Node
+node_modules/
+
+# Runtime logs (민감 정보 포함 가능)
+cds/logs/
+*.jsonl
+
+# OS / IDE
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
