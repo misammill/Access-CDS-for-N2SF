@@ -278,8 +278,9 @@ Swagger: `http://localhost:8000/docs`
   <tr align="center" valign="top">
     <td width="150" style="padding: 10px; border: none;">
       <a href="https://github.com/poatan2" target="_blank">
-        <img src="https://github.com/poatan2.png" width="90" style="border-radius: 50%;" alt="홍태경 프로필">
-      </a><br>
+        <img src="https://github.com/poatan2.png" width="90" style="border-radius: 50%;" alt="홍태경 아바타">
+      </a>
+      <br>
       <a href="https://github.com/poatan2" target="_blank" style="text-decoration: none; color: inherit;">
         <span style="font-size: 16px; font-weight: bold; display: block; margin-top: 8px;">홍태경</span>
       </a>
@@ -287,24 +288,27 @@ Swagger: `http://localhost:8000/docs`
     </td>
     <td width="150" style="padding: 10px; border: none;">
       <a href="https://github.com/LeeDoHyup" target="_blank">
-        <img src="https://github.com/LeeDoHyup.png" width="90" style="border-radius: 50%;" alt="이도협 프로필">
-      </a><br>
+        <img src="https://github.com/LeeDoHyup.png" width="90" style="border-radius: 50%;" alt="이도협 아바타">
+      </a>
+      <br>
       <a href="https://github.com/LeeDoHyup" target="_blank" style="text-decoration: none; color: inherit;">
         <span style="font-size: 16px; font-weight: bold; display: block; margin-top: 8px;">이도협</span>
       </a>
     </td>
     <td width="150" style="padding: 10px; border: none;">
       <a href="https://github.com/Park123r" target="_blank">
-        <img src="https://github.com/Park123r.png" width="90" style="border-radius: 50%;" alt="박윤하 프로필">
-      </a><br>
+        <img src="https://github.com/Park123r.png" width="90" style="border-radius: 50%;" alt="박윤하 아바타">
+      </a>
+      <br>
       <a href="https://github.com/Park123r" target="_blank" style="text-decoration: none; color: inherit;">
         <span style="font-size: 16px; font-weight: bold; display: block; margin-top: 8px;">박윤하</span>
       </a>
     </td>
     <td width="150" style="padding: 10px; border: none;">
       <a href="https://github.com/potatouni" target="_blank">
-        <img src="https://github.com/potatouni.png" width="90" style="border-radius: 50%;" alt="김유은 프로필">
-      </a><br>
+        <img src="https://github.com/potatouni.png" width="90" style="border-radius: 50%;" alt="김유은 아바타">
+      </a>
+      <br>
       <a href="https://github.com/potatouni" target="_blank" style="text-decoration: none; color: inherit;">
         <span style="font-size: 16px; font-weight: bold; display: block; margin-top: 8px;">김유은</span>
       </a>
