@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>로그인 | 통합 업무 포털</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body class="login-page">
+
+  <div class="login-container">
+    <div class="login-box">
+      <h1>통합 업무 포털</h1>
+      <h2>로그인</h2>
+
+      <form onsubmit="login(event)">
+        <input id="id" placeholder="아이디" />
+        <input id="pw" type="password" placeholder="비밀번호" />
+        <button type="submit">로그인</button>
+      </form>
+    </div>
+  </div>
+
+  <!-- OTP 모달 -->
+  <div id="otpModal" class="modal">
+    <div class="modal-content">
+      <h3>OTP 인증</h3>
+
+      <img id="qrImg" style="display:none; width:180px; margin-bottom:10px;" />
+
+      <form onsubmit="verifyOtp(event)">
+        <input id="otpInput" placeholder="OTP 입력" />
+        <button type="submit">인증</button>
+      </form>
+
+      <button onclick="closeModal()" class="close-btn">닫기</button>
+    </div>
+  </div>
+
+  <script>
+    async function login(event) {
+      event.preventDefault();
+
+      const id = document.getElementById("id").value.trim();
+      const pw = document.getElementById("pw").value.trim();
+
+      let res;
+      try {
+        res = await fetch("/login", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ id, pw })
+        });
+      } catch (e) {
+        alert(
+          "서버에 연결할 수 없습니다.\n반드시 주소창에 http://localhost:3000/login_otp.html 로 접속했는지,\n그리고 터미널에서 npm start 로 웹 서버가 켜져 있는지 확인하세요."
+        );
+        return;
+      }
+
+      const data = await res.json().catch(() => ({}));
+
+      if (data.qr) {
+        localStorage.setItem("tempUser", id);
+
+        const qrImg = document.getElementById("qrImg");
+        qrImg.src = data.qr;
+        qrImg.style.display = "block";
+
+        openModal();
+        return;
+      }
+
+      if (res.ok) {
+        localStorage.setItem("tempUser", id);
+        openModal();
+      } else {
+        alert(data.message || "아이디 또는 비밀번호가 올바르지 않습니다.");
+      }
+    }
+
+    function openModal() {
+      document.getElementById("otpModal").style.display = "flex";
+    }
+
+    function closeModal() {
+      document.getElementById("otpModal").style.display = "none";
+    }
+
+    async function verifyOtp(event) {
+      event.preventDefault();
+
+      const id = localStorage.getItem("tempUser");
+      const otp = document.getElementById("otpInput").value;
+
+      if (!id) {
+        alert("세션이 끊겼습니다. 아이디·비밀번호부터 다시 로그인해 주세요.");
+        return;
+      }
+
+      let res;
+      try {
+        res = await fetch("/verify-otp", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ id, otp })
+        });
+      } catch (e) {
+        alert("서버에 연결할 수 없습니다. 웹 서버(npm start)가 켜져 있는지 확인하세요.");
+        return;
+      }
+
+      const data = await res.json().catch(() => ({}));
+
+      if (res.ok) {
+        localStorage.setItem("token", data.token);
+        window.location.href = "index.html";
+      } else {
+        alert(data.message || "OTP 번호가 올바르지 않습니다.");
+      }
+    }
+  </script>
+
+</body>
+</html>

@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>통합 업무 포털</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <!-- 상단 헤더 -->
+  <header class="site-header">
+    <div class="header-top">
+        <div class="logo" onclick="location.href='index.html'">
+        통합 업무 포털
+        </div>
+
+        <div class="top-links">
+        <span id="authText" onclick="handleAuth()">로그인</span>
+        <span>|</span>
+        <span>회원가입</span>
+        <span>|</span>
+        <span onclick="goMyPage()">마이페이지</span>
+        </div>
+    </div>
+
+    <div class="menu-bar">
+        <nav class="main-menu">
+            <a href="index.html">홈</a>
+            <a href="#">공지사항</a>
+            <a href="#" onclick="goDocumentPage()">문서 조회</a>
+            <a href="#">업무 관리</a>
+            <a href="#">자료실</a>
+        </nav>
+
+    <div class="search-box">
+        <input type="text" placeholder="검색어를 입력하세요">
+        <button>검색</button>
+    </div>
+</div>
+  </header>
+
+  <hr>
+
+  <!-- 메인 영역 -->
+  <main>
+    <section>
+      <h2>통합 업무 포털에 오신 것을 환영합니다.</h2>
+      <p>
+        본 시스템은 내부 사용자 인증을 기반으로 업무 자료 및 문서 조회 기능을 제공합니다.
+      </p>
+    </section>
+
+    <section>
+      <h3>주요 서비스</h3>
+      <ul>
+        <li>공지사항 확인</li>
+        <li>업무 자료 조회</li>
+        <li>문서 조회</li>
+        <li>사용자 인증 및 권한 관리</li>
+      </ul>
+    </section>
+  </main>
+
+  <hr>
+
+  <!-- 하단 영역 -->
+  <footer>
+    <p>© 2026 Integrated Work Portal</p>
+  </footer>
+
+  <script>    
+    function goLogin() {
+      window.location.href = "login_otp.html";
+    }
+
+    function goDocumentPage() {
+      const token = localStorage.getItem("token");
+
+      if (!token) {
+        alert("로그인이 필요합니다.");
+        window.location.href = "login_otp.html";
+      } else {
+        window.location.href = "main.html";
+      }
+    }
+
+    function goMyPage() {
+      const token = localStorage.getItem("token");
+
+      if (!token) {
+        alert("로그인이 필요합니다.");
+        window.location.href = "login_otp.html";
+      } else {
+        alert("마이페이지는 추후 구현 예정입니다.");
+      }
+    }
+
+    function updateAuthUI() {
+        const token = localStorage.getItem("token");
+        const authText = document.getElementById("authText");
+
+        if (token) {
+            authText.innerText = "로그아웃";
+        } else {
+            authText.innerText = "로그인";
+        }
+    }
+
+    function handleAuth() {
+        const token = localStorage.getItem("token");
+
+        if (token) {
+            localStorage.removeItem("token");
+            localStorage.removeItem("tempUser");
+            alert("로그아웃 되었습니다.");
+            location.reload();
+        } else {
+            goLogin();
+        }
+    }
+
+    window.onload = function () {
+        updateAuthUI();
+    };
+  </script>
+
+
+</body>
+</html>

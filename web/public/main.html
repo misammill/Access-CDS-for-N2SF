@@ -1,0 +1,405 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>문서 조회 | 통합 업무 포털</title>
+  <link rel="stylesheet" href="style.css">
+  <style>
+    #documentList tr[data-payload] { cursor: pointer; }
+    #documentList tr[data-payload]:hover { background: rgba(0,0,0,0.04); }
+  </style>
+</head>
+<body>
+
+  <header class="site-header">
+    <div class="header-top">
+      <div class="logo" onclick="location.href='index.html'">
+        통합 업무 포털
+      </div>
+
+      <div class="top-links">
+        <span onclick="logout()">로그아웃</span>
+        <span>|</span>
+        <span>마이페이지</span>
+      </div>
+    </div>
+
+    <div class="menu-bar">
+      <nav class="main-menu">
+        <a href="index.html">홈</a>
+        <a href="#">공지사항</a>
+        <a href="main.html">문서 조회</a>
+        <a href="#">업무 관리</a>
+        <a href="#">자료실</a>
+      </nav>
+
+      <div class="search-box">
+        <input id="searchInput" type="text" placeholder="검색어를 입력하세요">
+        <button onclick="searchDocuments()">검색</button>
+      </div>
+    </div>
+  </header>
+
+  <!-- 문서 뷰어 모달 -->
+  <div id="docViewerModal" class="modal">
+    <div class="modal-content doc-viewer-modal">
+      <div class="doc-viewer-header">
+        <h3 id="modalDocTitle"></h3>
+        <div id="modalDocMeta" class="doc-viewer-meta"></div>
+      </div>
+      <div id="modalDocBody" class="doc-viewer-body"></div>
+      <div class="doc-viewer-footer">
+        <button type="button" onclick="closeDocModal()" class="close-btn">닫기</button>
+      </div>
+    </div>
+  </div>
+
+  <main>
+    <section>
+      <h2>문서 조회</h2>
+      <hr>
+      <h3>문서 목록</h3>
+      <p class="doc-hint">문서 행을 한 번 클릭하면 열람합니다. (Word는 미리보기 + 마스킹 파일 다운로드)</p>
+
+      <table class="doc-table" id="docTable">
+        <thead>
+          <tr>
+            <th>번호</th>
+            <th>등급</th>
+            <th>문서 제목</th>
+            <th>버킷</th>
+            <th>열람</th>
+            <th>수정일</th>
+          </tr>
+        </thead>
+        <tbody id="documentList">
+          <tr>
+            <td colspan="6">문서 목록을 불러오는 중입니다.</td>
+          </tr>
+        </tbody>
+      </table>
+      <div id="docPager" class="doc-pager" style="margin-top:12px;display:flex;align-items:center;gap:12px;">
+        <button type="button" id="btnPrevPage">이전</button>
+        <span id="pageInfo">페이지 1 / 1</span>
+        <button type="button" id="btnNextPage">다음</button>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <p>© 2026 Integrated Work Portal</p>
+  </footer>
+
+ <script>
+    // 동일 출처 프록시 (server.js → CDS). CDS 직접 URL 쓰면 CORS·방화벽 때문에 목록이 비는 경우가 많음.
+    const CDS_BASE_URL = "/api/cds";
+
+    const token = localStorage.getItem("token");
+    let documentData = [];
+    let listPage = 1;
+    const PAGE_SIZE = 10;
+    let listTotal = 0;
+    let lastOpenDocId = "";
+    let lastOpenTitle = "";
+
+    if (!token) {
+      alert("로그인이 필요합니다");
+      window.location.href = "login_otp.html";
+    }
+
+    window.onload = function () {
+      document.getElementById("docTable").addEventListener("click", onDocTableClick);
+      document.getElementById("btnPrevPage").addEventListener("click", () => {
+        if (listPage > 1) getData(listPage - 1);
+      });
+      document.getElementById("btnNextPage").addEventListener("click", () => {
+        const totalPages = Math.max(1, Math.ceil(listTotal / PAGE_SIZE));
+        if (listPage < totalPages) getData(listPage + 1);
+      });
+      getData(1);
+    };
+
+    function updatePager() {
+      const totalPages = Math.max(1, Math.ceil(listTotal / PAGE_SIZE));
+      document.getElementById("pageInfo").textContent =
+        `페이지 ${listPage} / ${totalPages} · 총 ${listTotal}건`;
+      document.getElementById("btnPrevPage").disabled = listPage <= 1;
+      document.getElementById("btnNextPage").disabled = listPage >= totalPages;
+    }
+
+    function onDocTableClick(e) {
+      if (e.target.closest("button,a,input,select,textarea")) return;
+      const tr = e.target.closest("tbody tr[data-payload]");
+      if (!tr || !tr.dataset.payload) return;
+      let row;
+      try {
+        row = JSON.parse(decodeURIComponent(tr.dataset.payload));
+      } catch (_) {
+        return;
+      }
+      openDocument(row.status, row.doc_id, row.title, row.doc_level || "");
+    }
+
+    // ── 문서 목록: CDS가 C/S/O S3 버킷을 합쳐서 내려줌 (페이지네이션) ───────
+    async function getData(page = 1) {
+      const tbody = document.getElementById("documentList");
+      try {
+        const res = await fetch(
+          `${CDS_BASE_URL}/documents/s3-index?page=${page}&page_size=${PAGE_SIZE}`,
+          { headers: { Authorization: `Bearer ${token}` } }
+        );
+
+        let result = {};
+        try {
+          result = await res.json();
+        } catch (_) {
+          tbody.innerHTML =
+            `<tr><td colspan="6">CDS 응답이 JSON이 아닙니다 (HTTP ${res.status}). CDS가 8000에서 떠 있는지 확인하세요.</td></tr>`;
+          return;
+        }
+
+        if (!res.ok) {
+          if (res.status === 401) {
+            alert("세션이 만료되었습니다. 다시 로그인해 주세요.");
+            window.location.href = "login_otp.html";
+            return;
+          }
+          const detail =
+            result.detail ||
+            result.message ||
+            result.hint ||
+            (typeof result === "object" ? JSON.stringify(result) : "문서 목록 조회 실패");
+          tbody.innerHTML = `<tr><td colspan="6">${escapeHtml(
+            typeof detail === "string" ? detail : JSON.stringify(detail)
+          )}</td></tr>`;
+          return;
+        }
+
+        listPage = result.page != null ? result.page : page;
+        listTotal = result.total != null ? result.total : (result.data || []).length;
+        updatePager();
+
+        const raw = result.data || [];
+      const levelRank = { O: 1, S: 2, C: 3 };
+      let uRank = 0;
+      try {
+        const part = token.split(".")[1];
+        const b64 = part.replace(/-/g, "+").replace(/_/g, "/");
+        const pad = "=".repeat((4 - (b64.length % 4)) % 4);
+        const payload = JSON.parse(atob(b64 + pad));
+        uRank = levelRank[payload.level] || 0;
+      } catch (_) {}
+
+        documentData = raw.map((doc) => {
+          const dRank = levelRank[doc.doc_level] || 0;
+          let status = "제한";
+          if (uRank >= dRank) status = "열람";
+          else if (dRank - uRank === 1) status = "요청";
+          return { ...doc, status };
+        });
+        renderDocuments(documentData);
+      } catch (err) {
+        tbody.innerHTML = `<tr><td colspan="6">목록 요청 실패: ${escapeHtml(err.message)} (웹 서버·CDS 실행 여부 확인)</td></tr>`;
+      }
+    }
+
+    function escapeHtml(s) {
+      if (s == null) return "";
+      return String(s)
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;");
+    }
+
+    // ── 문서 목록 렌더링 ─────────────────────────────────────────────────
+    function renderDocuments(docs) {
+      const tbody = document.getElementById("documentList");
+
+      if (docs.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="6">조회된 문서가 없습니다.</td></tr>`;
+        return;
+      }
+
+      tbody.innerHTML = docs.map((doc, index) => {
+        const payload = encodeURIComponent(JSON.stringify({
+          status: doc.status,
+          doc_id: doc.doc_id,
+          title: doc.title,
+          doc_level: doc.doc_level
+        }));
+        const rowNo = (listPage - 1) * PAGE_SIZE + index + 1;
+        return `
+        <tr data-payload="${payload}">
+          <td>${rowNo}</td>
+          <td><span class="viewer-badge badge-level-${doc.doc_level}">${escapeHtml(doc.doc_level)}</span></td>
+          <td class="doc-title">${escapeHtml(doc.title)}</td>
+          <td class="doc-bucket">${escapeHtml(doc.bucket || "")}</td>
+          <td><span class="status ${getStatusClass(doc.status)}">${escapeHtml(doc.status)}</span></td>
+          <td>${formatDate(doc.created_at)}</td>
+        </tr>`;
+      }).join("");
+    }
+
+    function getStatusClass(status) {
+      if (status === "열람") return "status-open";
+      if (status === "요청") return "status-request";
+      return "status-limit";
+    }
+
+    // ── CDS 연동 문서 열람 ────────────────────────────────────────────────
+    async function openDocument(status, docId, title, docLevel) {
+      lastOpenDocId = docId;
+      lastOpenTitle = title || "";
+      // 완전 차단 등급은 CDS 호출 없이 즉시 안내
+      if (status === "제한") {
+        showDocModal({
+          title,
+          docLevel,
+          errorMsg: "접근 권한이 없습니다. 이 문서는 현재 사용자 등급으로 열람할 수 없습니다.",
+          isDenied: true
+        });
+        return;
+      }
+
+      // 로딩 상태 표시
+      showDocModal({ title, docLevel, loading: true });
+
+      try {
+        const res = await fetch(`${CDS_BASE_URL}/access/${encodeURIComponent(docId)}`, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+
+        const data = await res.json();
+
+        if (res.ok) {
+          showDocModal({
+            title: data.title || title,
+            docLevel: data.doc_level,
+            userLevel: data.user_level,
+            content: data.masked_text,
+            maskedCount: data.masked_count,
+            message: data.message,
+            maskedDocxAvailable: data.masked_docx_available === true
+          });
+        } else {
+          // CDS가 403 또는 기타 오류를 반환한 경우
+          const detail = data.detail || data.message || "접근이 거부되었습니다.";
+          showDocModal({ title, docLevel, errorMsg: detail, isDenied: res.status === 403 });
+        }
+      } catch (err) {
+        showDocModal({
+          title,
+          docLevel,
+          errorMsg: `CDS 서버 연결 오류: ${err.message}\n(CDS 서버가 실행 중인지 확인해 주세요)`
+        });
+      }
+    }
+
+    // ── 문서 뷰어 모달 표시 ───────────────────────────────────────────────
+    async function downloadMaskedDocx() {
+      if (!lastOpenDocId) return;
+      try {
+        const res = await fetch(
+          `${CDS_BASE_URL}/access/${encodeURIComponent(lastOpenDocId)}/download-masked`,
+          { headers: { Authorization: `Bearer ${token}` } }
+        );
+        if (!res.ok) {
+          const errText = await res.text();
+          alert(`다운로드 실패 (${res.status}): ${errText.slice(0, 200)}`);
+          return;
+        }
+        const blob = await res.blob();
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        const base = (lastOpenTitle || "document").replace(/\.docx$/i, "");
+        a.download = `${base}-masked.docx`;
+        a.click();
+        URL.revokeObjectURL(url);
+      } catch (err) {
+        alert(`다운로드 오류: ${err.message}`);
+      }
+    }
+
+    function showDocModal({
+      title,
+      docLevel,
+      userLevel,
+      content,
+      maskedCount,
+      message,
+      loading,
+      errorMsg,
+      isDenied,
+      maskedDocxAvailable
+    }) {
+      document.getElementById("modalDocTitle").textContent = title || "문서";
+
+      const metaEl = document.getElementById("modalDocMeta");
+      const bodyEl = document.getElementById("modalDocBody");
+
+      // 메타 배지
+      let metaHtml = "";
+      if (docLevel) {
+        metaHtml += `<span class="viewer-badge badge-level-${docLevel}">문서 등급: ${docLevel}</span>`;
+      }
+      if (userLevel) {
+        metaHtml += `<span class="viewer-badge badge-user">내 등급: ${userLevel}</span>`;
+      }
+      metaEl.innerHTML = metaHtml;
+
+      // 본문
+      if (loading) {
+        bodyEl.innerHTML = `<div class="viewer-loading"><div class="viewer-spinner"></div><p>CDS 보안 필터링 중...</p></div>`;
+      } else if (errorMsg) {
+        const icon = isDenied ? "🚫" : "⚠️";
+        bodyEl.innerHTML = `<div class="viewer-denied">${icon} ${errorMsg}</div>`;
+      } else {
+        const maskedBanner = maskedCount > 0
+          ? `<div class="viewer-masked-banner">🔒 민감정보 ${maskedCount}건이 마스킹 처리되었습니다.</div>`
+          : "";
+        const docxRow = maskedDocxAvailable
+          ? `<p class="docx-download-row"><button type="button" class="btn-docx-download" onclick="downloadMaskedDocx()">마스킹된 Word(.docx) 다운로드</button></p>`
+          : "";
+        bodyEl.innerHTML = `${maskedBanner}${docxRow}<div class="viewer-content" style="white-space:pre-wrap;">${escapeHtml(content) || "(내용 없음)"}</div>`;
+      }
+
+      document.getElementById("docViewerModal").style.display = "flex";
+    }
+
+    function closeDocModal() {
+      document.getElementById("docViewerModal").style.display = "none";
+    }
+
+    // 모달 바깥 클릭 시 닫기
+    document.getElementById("docViewerModal").addEventListener("click", function (e) {
+      if (e.target === this) closeDocModal();
+    });
+
+    // ── 검색 ──────────────────────────────────────────────────────────────
+    function searchDocuments() {
+      const keyword = document.getElementById("searchInput").value.trim();
+      const filtered = documentData.filter((doc) => {
+        if (!keyword) return true;
+        const t = (doc.title || "") + (doc.bucket || "") + (doc.s3_key || "") + (doc.doc_level || "");
+        return t.includes(keyword);
+      });
+      renderDocuments(filtered);
+    }
+
+    // ── 유틸 ──────────────────────────────────────────────────────────────
+    function formatDate(dateValue) {
+      if (!dateValue) return "—";
+      const date = new Date(dateValue);
+      if (Number.isNaN(date.getTime())) return "—";
+      return date.toLocaleDateString("ko-KR");
+    }
+
+    function logout() {
+      localStorage.removeItem("token");
+      localStorage.removeItem("tempUser");
+      window.location.href = "index.html";
+    }
+  </script>
+</body>
+</html>
